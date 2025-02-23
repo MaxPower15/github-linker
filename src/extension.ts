@@ -90,37 +90,41 @@ function calculateURL(): [string, boolean, string | undefined] {
 
     const gitConfig = ini.parse(fs.readFileSync(path.join(gitDir, 'config'), 'utf8'));
 
-    const branchInfo = Object.values(gitConfig).find(val => val['merge'] === refName);
-    let sha: string;
-    let remote: string;
+    let remote: string = '';
+    let sha: string = '';
     let isUsingDefaultBranch = false;
     let defaultBranchName: string | undefined;
 
-    if (!branchInfo) {
-        // Branch not found on remote, use default branch
-        const config = vscode.workspace.getConfiguration('githublinker');
-        const defaultBranch = config.get<string>('defaultBranch', 'main');
-        remote = 'origin';
-        defaultBranchName = defaultBranch;
-        isUsingDefaultBranch = true;
+    // First find the remote branch
+    const branchName = refName.replace('refs/heads/', '');
+    const remoteBranchPath = path.join(gitDir, 'refs', 'remotes', 'origin', branchName);
 
-        // Try to get the SHA of the default branch
-        const defaultBranchRef = path.join(gitDir, 'refs', 'remotes', remote, defaultBranch);
-        try {
-            sha = fs.readFileSync(defaultBranchRef, 'utf8').trim();
-        } catch (err) {
-            // If we can't read the SHA, just use the branch name
-            sha = defaultBranch;
-        }
-    } else {
-        // Use the current branch's SHA
-        sha = fs.readFileSync(path.join(gitDir, refName), 'utf8').trim();
-        remote = branchInfo['remote'];
+    if (fs.existsSync(remoteBranchPath)) {
+        remote = 'origin';
+        sha = fs.readFileSync(remoteBranchPath, 'utf8').trim();
+        console.log('Found remote branch, setting remote to:', remote);
     }
 
-    const remoteInfo = Object.entries(gitConfig).find((entry) => entry[0] === `remote "${remote}"`);
+    console.log('Before remoteInfo lookup, remote is:', remote);
+
+    // Now look up the remote URL
+    let remoteInfo = Object.entries(gitConfig).find((entry) => {
+        console.log('Looking for remote config:', entry[0], 'current remote value:', remote);
+        return entry[0] === `remote "${remote}"`;
+    });
     if (!remoteInfo) {
-        throw new Error(`No remote found called "${remote}"`);
+        if (remote === 'origin') {
+            // Find any remote "origin" section
+            const originInfo = Object.entries(gitConfig).find((entry) =>
+                entry[0].startsWith('remote "origin"'));
+            if (originInfo) {
+                remoteInfo = originInfo;
+            } else {
+                throw new Error('No remote "origin" configuration found in git config');
+            }
+        } else {
+            throw new Error(`No remote found called "${remote}"`);
+        }
     }
     const url = remoteInfo[1]['url'];
     const repoURL = getGitHubRepoURL(url);
