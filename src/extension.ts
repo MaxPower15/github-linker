@@ -60,7 +60,7 @@ function getWorktreePath(gitPath: string) {
     }
 }
 
-function calculateURL() {
+function calculateURL(): [string, boolean, string | undefined] {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
         throw new Error('No selected editor');
@@ -93,12 +93,16 @@ function calculateURL() {
     const branchInfo = Object.values(gitConfig).find(val => val['merge'] === refName);
     let sha: string;
     let remote: string;
+    let isUsingDefaultBranch = false;
+    let defaultBranchName: string | undefined;
 
     if (!branchInfo) {
         // Branch not found on remote, use default branch
         const config = vscode.workspace.getConfiguration('githublinker');
         const defaultBranch = config.get<string>('defaultBranch', 'main');
         remote = 'origin';
+        defaultBranchName = defaultBranch;
+        isUsingDefaultBranch = true;
 
         // Try to get the SHA of the default branch
         const defaultBranchRef = path.join(gitDir, 'refs', 'remotes', remote, defaultBranch);
@@ -108,8 +112,6 @@ function calculateURL() {
             // If we can't read the SHA, just use the branch name
             sha = defaultBranch;
         }
-
-        vscode.window.showInformationMessage(`Current branch not found on GitHub. Using default branch '${defaultBranch}' instead.`);
     } else {
         // Use the current branch's SHA
         sha = fs.readFileSync(path.join(gitDir, refName), 'utf8').trim();
@@ -133,20 +135,25 @@ function calculateURL() {
     const absolutePathURL = `${repoURL}/blob/${sha}/${relativePathURL}`;
 
     if (start === 1 && end === document.lineCount) {
-        return absolutePathURL;
+        return [absolutePathURL, isUsingDefaultBranch, defaultBranchName];
     } else if (start === end) {
-        return `${absolutePathURL}#L${start}`;
+        return [`${absolutePathURL}#L${start}`, isUsingDefaultBranch, defaultBranchName];
     }
 
-    return `${absolutePathURL}#L${start}-L${end}`;
+    return [`${absolutePathURL}#L${start}-L${end}`, isUsingDefaultBranch, defaultBranchName];
 }
 
 export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(vscode.commands.registerCommand('githublinker.copyLink', () => {
         try {
-            const finalURL = calculateURL();
+            const [finalURL, isUsingDefaultBranch, defaultBranch] = calculateURL();
             clipboardy.writeSync(finalURL);
-            vscode.window.showInformationMessage('GitHub URL copied to the clipboard!');
+
+            const message = isUsingDefaultBranch
+                ? `GitHub URL copied to clipboard! (Using default branch '${defaultBranch}')`
+                : 'GitHub URL copied to the clipboard!';
+
+            vscode.window.showInformationMessage(message);
         } catch (err) {
             if (err instanceof Error) {
                 vscode.window.showErrorMessage(err.message);
@@ -162,13 +169,17 @@ export function activate(context: vscode.ExtensionContext) {
                 throw new Error('No selected editor');
             }
             const {document, selection} = editor;
-
             const text = document.getText(selection);
 
-            const finalURL = calculateURL();
+            const [finalURL, isUsingDefaultBranch, defaultBranch] = calculateURL();
             const markdown = finalURL + '\n\n```' + document.languageId + '\n' + text + '\n```';
             clipboardy.writeSync(markdown);
-            vscode.window.showInformationMessage('GitHub URL and code copied to the clipboard!');
+
+            const message = isUsingDefaultBranch
+                ? `GitHub URL and code copied to clipboard! (Using default branch '${defaultBranch}')`
+                : 'GitHub URL and code copied to the clipboard!';
+
+            vscode.window.showInformationMessage(message);
         } catch (err) {
             if (err instanceof Error) {
                 vscode.window.showErrorMessage(err.message);
