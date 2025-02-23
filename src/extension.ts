@@ -60,7 +60,7 @@ function getWorktreePath(gitPath: string) {
     }
 }
 
-function calculateURL(): [string, boolean, string | undefined] {
+function calculateURL(forceDefaultBranch: boolean = false): [string, boolean, string | undefined] {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
         throw new Error('No selected editor');
@@ -95,14 +95,30 @@ function calculateURL(): [string, boolean, string | undefined] {
     let isUsingDefaultBranch = false;
     let defaultBranchName: string | undefined;
 
-    // First find the remote branch
-    const branchName = refName.replace('refs/heads/', '');
-    const remoteBranchPath = path.join(gitDir, 'refs', 'remotes', 'origin', branchName);
-
-    if (fs.existsSync(remoteBranchPath)) {
+    if (forceDefaultBranch) {
+        // Use default branch
+        const config = vscode.workspace.getConfiguration('githublinker');
+        defaultBranchName = config.get<string>('defaultBranch', 'main');
         remote = 'origin';
-        sha = fs.readFileSync(remoteBranchPath, 'utf8').trim();
-        console.log('Found remote branch, setting remote to:', remote);
+        isUsingDefaultBranch = true;
+
+        // Try to get the SHA of the default branch
+        const defaultBranchRef = path.join(gitDir, 'refs', 'remotes', remote, defaultBranchName);
+        try {
+            sha = fs.readFileSync(defaultBranchRef, 'utf8').trim();
+        } catch (err) {
+            // If we can't read the SHA, just use the branch name
+            sha = defaultBranchName;
+        }
+    } else {
+        // First find the remote branch
+        const branchName = refName.replace('refs/heads/', '');
+        const remoteBranchPath = path.join(gitDir, 'refs', 'remotes', 'origin', branchName);
+
+        if (fs.existsSync(remoteBranchPath)) {
+            remote = 'origin';
+            sha = fs.readFileSync(remoteBranchPath, 'utf8').trim();
+        }
     }
 
     console.log('Before remoteInfo lookup, remote is:', remote);
@@ -184,6 +200,20 @@ export function activate(context: vscode.ExtensionContext) {
                 : 'GitHub URL and code copied to the clipboard!';
 
             vscode.window.showInformationMessage(message);
+        } catch (err) {
+            if (err instanceof Error) {
+                vscode.window.showErrorMessage(err.message);
+            }
+            throw err;
+        }
+    }));
+
+    context.subscriptions.push(vscode.commands.registerCommand('githublinker.copyDefaultBranchLink', () => {
+        try {
+            const [finalURL, , defaultBranch] = calculateURL(true);
+            clipboardy.writeSync(finalURL);
+
+            vscode.window.showInformationMessage(`GitHub URL copied to clipboard! (Using default branch '${defaultBranch}')`);
         } catch (err) {
             if (err instanceof Error) {
                 vscode.window.showErrorMessage(err.message);
