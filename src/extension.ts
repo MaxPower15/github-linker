@@ -87,15 +87,35 @@ function calculateURL() {
         throw new Error('No ref found. Cannot calculate current commit');
     }
     const refName = ref.substring(refPrefix.length);
-    const sha = fs.readFileSync(path.join(gitDir, refName), 'utf8').trim();
 
     const gitConfig = ini.parse(fs.readFileSync(path.join(gitDir, 'config'), 'utf8'));
 
     const branchInfo = Object.values(gitConfig).find(val => val['merge'] === refName);
+    let sha: string;
+    let remote: string;
+
     if (!branchInfo) {
-        throw new Error('No branch info found. Cannot calculate remote');
+        // Branch not found on remote, use default branch
+        const config = vscode.workspace.getConfiguration('githublinker');
+        const defaultBranch = config.get<string>('defaultBranch', 'main');
+        remote = 'origin';
+
+        // Try to get the SHA of the default branch
+        const defaultBranchRef = path.join(gitDir, 'refs', 'remotes', remote, defaultBranch);
+        try {
+            sha = fs.readFileSync(defaultBranchRef, 'utf8').trim();
+        } catch (err) {
+            // If we can't read the SHA, just use the branch name
+            sha = defaultBranch;
+        }
+
+        vscode.window.showInformationMessage(`Current branch not found on GitHub. Using default branch '${defaultBranch}' instead.`);
+    } else {
+        // Use the current branch's SHA
+        sha = fs.readFileSync(path.join(gitDir, refName), 'utf8').trim();
+        remote = branchInfo['remote'];
     }
-    const remote = branchInfo['remote'];
+
     const remoteInfo = Object.entries(gitConfig).find((entry) => entry[0] === `remote "${remote}"`);
     if (!remoteInfo) {
         throw new Error(`No remote found called "${remote}"`);
