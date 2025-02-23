@@ -1,15 +1,15 @@
 {
     "name": "github-linker",
-    "displayName": "GitHub linker",
+    "displayName": "GitHub linker (allow default branch)",
     "description": "Create links to fragments of code in GitHub",
-    "version": "0.2.5",
-    "publisher": "gimenete",
+    "version": "0.0.1",
+    "publisher": "MaxPower15",
     "engines": {
         "vscode": "^1.80.0"
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/gimenete/github-linker.git"
+        "url": "https://github.com/MaxPower15/github-linker.git"
     },
     "categories": [
         "Other"
