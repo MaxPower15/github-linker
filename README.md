@@ -10,6 +10,7 @@ The extension is not currently in the marketplace. To install it:
 git clone --depth 1 -b mms/allow-default-branch https://github.com/MaxPower15/github-linker
 cd github-linker
 npm install
+npm run compile
 npm install -g @vscode/vsce
 vsce package
 
