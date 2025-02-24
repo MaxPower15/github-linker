@@ -7,6 +7,8 @@ It supports getting a permalink even if your branch isn't listed as a remote in 
 The extension is not currently in the marketplace. To install it:
 
 ```
+# First, if you have the  GitHub Linker extension already installed, uninstall it
+
 git clone --depth 1 -b mms/allow-default-branch https://github.com/MaxPower15/github-linker
 cd github-linker
 npm install
