@@ -1,5 +1,23 @@
 # GitHub Linker
 
+This is a fork of [GitHub Linker](https://github.com/mblode/vscode-github-linker) with some changes.
+
+It supports getting a permalink even if your branch isn't listed as a remote in .git/config. If you've pushed or pulled from GitHub, that's enough. And if your branch is not pushed to GitHub, it will use the default branch, which defaults to "main" but can be overridden in the settings. It also adds a command to copy the permalink for the default branch at any time.
+
+The extension is not currently in the marketplace. To install it:
+
+```
+git clone --depth 1 -b mms/allow-default-branch https://github.com/MaxPower15/github-linker
+cd github-linker
+npm install
+npm install -g @vscode/vsce
+vsce package
+
+# Choose one (or both) of these depending on whether you're installing to VS Code or Cursor
+code --install-extension github-linker-0.0.1.vsix
+cursor --install-extension github-linker-0.0.1.vsix
+```
+
 ## Features
 
 GitHub linker allows you to select a piece of text and create a permanent link to GitHub.com for that piece of text. Just select the text, right click, and you'll see two new options.
